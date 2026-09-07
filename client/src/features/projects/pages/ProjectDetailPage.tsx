@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { PageContainer } from '@/components/layout'
 import { ErrorState, useToast } from '@/components/ui'
-import { LayoutDashboard, Kanban, ListTodo, Activity } from 'lucide-react'
+import { LayoutDashboard, Kanban, ListTodo, Activity, ShieldCheck } from 'lucide-react'
 import {
   ProjectHeader,
   ProjectProgressSummary,
@@ -16,10 +16,13 @@ import {
   DeleteProjectDialog,
   EditProjectDialog,
   ProjectWorkspaceSkeleton,
+  ProjectAccountabilityTab,
 } from '../components'
 import { useProjectWorkspace } from '../hooks/useProjectWorkspace'
+import { projectsApi } from '@/lib/api'
 import {
   ProjectTask,
+
   TaskStatus,
   CreateTaskInput,
   UpdateTaskInput,
@@ -27,9 +30,13 @@ import {
   Project,
 } from '../types'
 
-type TabType = 'overview' | 'board' | 'tasks' | 'activity'
+type TabType = 'overview' | 'board' | 'tasks' | 'activity' | 'accountability'
 
-export function ProjectDetailPage() {
+export interface ProjectDetailPageProps {
+  defaultTab?: TabType
+}
+
+export function ProjectDetailPage({ defaultTab = 'overview' }: ProjectDetailPageProps = {}) {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -38,6 +45,8 @@ export function ProjectDetailPage() {
     project,
     tasks,
     activities,
+    isLoading: isWorkspaceLoading,
+    isError,
     createTask,
     updateTask,
     moveTaskStatus,
@@ -47,9 +56,10 @@ export function ProjectDetailPage() {
     editProject,
   } = useProjectWorkspace(projectId)
 
-  const [activeTab, setActiveTab] = React.useState<TabType>('overview')
-  const [isLoading] = React.useState(false)
-  const [error] = React.useState<string | null>(null)
+  const [activeTab, setActiveTab] = React.useState<TabType>(defaultTab)
+  const isLoading = isWorkspaceLoading && !project
+  const error = isError && !project ? 'Unable to load project workspace' : null
+
 
   // Dialog states
   const [isAddTaskOpen, setIsAddTaskOpen] = React.useState(false)
@@ -144,13 +154,25 @@ export function ProjectDetailPage() {
 
   const handleDeleteConfirmed = () => {
     setIsDeleteOpen(false)
-    toast({
-      title: 'Project deleted',
-      description: `"${project.name}" workspace was removed.`,
-      variant: 'default',
-    })
-    navigate('/app/projects')
+    projectsApi
+      .deleteProject(project.id)
+      .then(() => {
+        toast({
+          title: 'Project deleted',
+          description: `"${project.name}" workspace was removed.`,
+          variant: 'default',
+        })
+        navigate('/app/projects')
+      })
+      .catch((err) => {
+        toast({
+          title: 'Delete Failed',
+          description: err.message || 'Could not delete project from server.',
+          variant: 'destructive',
+        })
+      })
   }
+
 
   const handleDuplicateProject = () => {
     toast({
@@ -174,6 +196,7 @@ export function ProjectDetailPage() {
     { id: 'board', label: 'Board', icon: Kanban },
     { id: 'tasks', label: 'Tasks', icon: ListTodo },
     { id: 'activity', label: 'Activity', icon: Activity },
+    { id: 'accountability', label: 'Accountability', icon: ShieldCheck },
   ]
 
   if (isLoading) {
@@ -282,6 +305,14 @@ export function ProjectDetailPage() {
 
           {activeTab === 'activity' && (
             <ProjectActivityFeed activities={activities} />
+          )}
+
+          {activeTab === 'accountability' && (
+            <ProjectAccountabilityTab
+              project={project}
+              tasks={tasks}
+              onSelectTask={(task) => setSelectedTask(task)}
+            />
           )}
         </div>
       </div>

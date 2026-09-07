@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Project,
   ProjectTask,
@@ -9,15 +10,19 @@ import {
   UpdateTaskInput,
   TaskComment,
 } from '../types'
+import { projectsApi } from '@/lib/api'
 import { MOCK_PROJECTS, WORKSPACE_MEMBERS } from '../data/mockProjects'
 import { getProjectTasks, getProjectActivities } from '../data/mockProjectDetails'
 import { calculateProjectMetrics } from '../utils/taskMetrics'
+import { useToast } from '@/components/ui'
 
 export function useProjectWorkspace(projectId: string | undefined) {
   const currentProjectId = projectId || 'proj-1'
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
 
-  // Get base project metadata
-  const baseProject = React.useMemo(() => {
+  // Base fallback project
+  const fallbackProject = React.useMemo(() => {
     return (
       MOCK_PROJECTS.find((p) => p.id === currentProjectId) || {
         ...MOCK_PROJECTS[0],
@@ -27,7 +32,29 @@ export function useProjectWorkspace(projectId: string | undefined) {
     )
   }, [currentProjectId])
 
-  const [project, setProject] = React.useState<Project>(baseProject)
+  // 1. Fetch Project Data from API
+  const projectQuery = useQuery({
+    queryKey: ['project', currentProjectId],
+    queryFn: () => projectsApi.getProject(currentProjectId),
+    retry: 1,
+  })
+
+  // 2. Fetch Tasks Data from API
+  const tasksQuery = useQuery({
+    queryKey: ['project-tasks', currentProjectId],
+    queryFn: () => projectsApi.getTasks(currentProjectId),
+    retry: 1,
+  })
+
+  // 3. Fetch Activities Data from API
+  const activitiesQuery = useQuery({
+    queryKey: ['project-activities', currentProjectId],
+    queryFn: () => projectsApi.getActivities(currentProjectId),
+    retry: 1,
+  })
+
+  // Local synced state for immediate optimistic UI reactivity
+  const [project, setProject] = React.useState<Project>(fallbackProject)
   const [tasks, setTasks] = React.useState<ProjectTask[]>(() =>
     getProjectTasks(currentProjectId)
   )
@@ -35,12 +62,51 @@ export function useProjectWorkspace(projectId: string | undefined) {
     getProjectActivities(currentProjectId)
   )
 
+  // Synchronize local state with API query responses
+  React.useEffect(() => {
+    if (projectQuery.data) {
+      setProject(projectQuery.data)
+    }
+  }, [projectQuery.data])
+
+  React.useEffect(() => {
+    if (tasksQuery.data && tasksQuery.data.length > 0) {
+      setTasks(tasksQuery.data)
+    }
+  }, [tasksQuery.data])
+
+  React.useEffect(() => {
+    if (activitiesQuery.data && activitiesQuery.data.length > 0) {
+      setActivities(activitiesQuery.data)
+    }
+  }, [activitiesQuery.data])
+
   const currentUser: ProjectMember = project.members[0] || WORKSPACE_MEMBERS[0]
 
   // Centralized real-time metrics
   const metrics = React.useMemo(() => calculateProjectMetrics(tasks), [tasks])
 
-  // 1. Create Task
+  // 1. Create Task Mutation
+  const createTaskMutation = useMutation({
+    mutationFn: (input: CreateTaskInput) => projectsApi.createTask(currentProjectId, input),
+    onSuccess: (createdTask) => {
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', currentProjectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-activities', currentProjectId] })
+      toast({
+        title: 'Task Created',
+        description: `"${createdTask.title}" added to project.`,
+        variant: 'success',
+      })
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Task Creation Failed',
+        description: err.message || 'Unable to create task on the server.',
+        variant: 'destructive',
+      })
+    },
+  })
+
   const createTask = React.useCallback(
     (input: CreateTaskInput): ProjectTask => {
       const selectedAssignee = input.assigneeId
@@ -48,7 +114,7 @@ export function useProjectWorkspace(projectId: string | undefined) {
           WORKSPACE_MEMBERS.find((m) => m.id === input.assigneeId)
         : undefined
 
-      const newTask: ProjectTask = {
+      const optimisticTask: ProjectTask = {
         id: `task-${Date.now()}`,
         projectId: project.id,
         title: input.title.trim(),
@@ -65,25 +131,44 @@ export function useProjectWorkspace(projectId: string | undefined) {
         createdAt: 'Just now',
       }
 
-      setTasks((prev) => [newTask, ...prev])
+      setTasks((prev) => [optimisticTask, ...prev])
 
       const activity: ProjectActivityItem = {
         id: `act-${Date.now()}`,
         projectId: project.id,
         user: currentUser,
         action: 'created new task',
-        target: newTask.title,
+        target: optimisticTask.title,
         timestamp: 'Just now',
         type: 'task_created',
       }
       setActivities((prev) => [activity, ...prev])
 
-      return newTask
+      // Fire real API mutation in background
+      createTaskMutation.mutate(input)
+
+      return optimisticTask
     },
-    [project.id, project.members, currentUser]
+    [project.id, project.members, currentUser, createTaskMutation]
   )
 
-  // 2. Update Task
+  // 2. Update Task Mutation
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ taskId, input }: { taskId: string; input: UpdateTaskInput }) =>
+      projectsApi.updateTask(taskId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-tasks', currentProjectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-activities', currentProjectId] })
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Task Update Failed',
+        description: err.message || 'Failed to sync update with the server.',
+        variant: 'destructive',
+      })
+    },
+  })
+
   const updateTask = React.useCallback(
     (taskId: string, input: UpdateTaskInput): ProjectTask | null => {
       let updatedTaskResult: ProjectTask | null = null
@@ -129,51 +214,22 @@ export function useProjectWorkspace(projectId: string | undefined) {
       )
 
       if (updatedTaskResult) {
-        const taskObj = updatedTaskResult as ProjectTask
-        // Log activity based on what changed
-        let action = 'updated task'
-        let actType: ProjectActivityItem['type'] = 'task_updated'
-
-        if (input.status && input.status !== (tasks.find((t) => t.id === taskId)?.status)) {
-          if (input.status === 'Done') {
-            action = 'completed task'
-            actType = 'task_completed'
-          } else {
-            action = `moved task to ${input.status}`
-            actType = 'status_changed'
-          }
-        } else if (input.priority && input.priority !== (tasks.find((t) => t.id === taskId)?.priority)) {
-          action = `changed priority to ${input.priority} on`
-          actType = 'priority_changed'
-        } else if (input.assigneeId !== undefined) {
-          const assigneeName = taskObj.assignee?.name || 'Unassigned'
-          action = `assigned ${assigneeName} to`
-          actType = 'task_assigned'
-        }
-
-        const activity: ProjectActivityItem = {
-          id: `act-${Date.now()}`,
-          projectId: project.id,
-          user: currentUser,
-          action,
-          target: taskObj.title,
-          timestamp: 'Just now',
-          type: actType,
-        }
-        setActivities((prev) => [activity, ...prev])
+        updateTaskMutation.mutate({ taskId, input })
       }
 
       return updatedTaskResult
     },
-    [project.id, project.members, tasks, currentUser]
+    [project.members, updateTaskMutation]
   )
 
-  // 3. Move Task Status
+  // 3. Move Task Status (Optimistic Kanban with Rollback on Error)
   const moveTaskStatus = React.useCallback(
     (taskId: string, newStatus: TaskStatus) => {
+      const previousTasks = [...tasks]
       const targetTask = tasks.find((t) => t.id === taskId)
       if (!targetTask || targetTask.status === newStatus) return
 
+      // Optimistic UI update
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
       )
@@ -189,30 +245,59 @@ export function useProjectWorkspace(projectId: string | undefined) {
         type: isCompleted ? 'task_completed' : 'status_changed',
       }
       setActivities((prev) => [activity, ...prev])
+
+      // Execute server update
+      projectsApi
+        .updateTask(taskId, { status: newStatus })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['project-tasks', currentProjectId] })
+          queryClient.invalidateQueries({ queryKey: ['project-activities', currentProjectId] })
+        })
+        .catch((err) => {
+          // Rollback on failure
+          setTasks(previousTasks)
+          toast({
+            title: 'Failed to update task status',
+            description: err.message || 'Status could not be updated. Changes reverted.',
+            variant: 'destructive',
+          })
+        })
     },
-    [tasks, project.id, currentUser]
+    [tasks, project.id, currentUser, queryClient, currentProjectId, toast]
   )
 
-  // 4. Delete Task
+  // 4. Delete Task Mutation
   const deleteTask = React.useCallback(
     (taskId: string) => {
+      const previousTasks = [...tasks]
       const targetTask = tasks.find((t) => t.id === taskId)
       if (!targetTask) return
 
+      // Optimistic remove
       setTasks((prev) => prev.filter((t) => t.id !== taskId))
 
-      const activity: ProjectActivityItem = {
-        id: `act-${Date.now()}`,
-        projectId: project.id,
-        user: currentUser,
-        action: 'deleted task',
-        target: targetTask.title,
-        timestamp: 'Just now',
-        type: 'task_deleted',
-      }
-      setActivities((prev) => [activity, ...prev])
+      projectsApi
+        .deleteTask(taskId)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['project-tasks', currentProjectId] })
+          queryClient.invalidateQueries({ queryKey: ['project-activities', currentProjectId] })
+          toast({
+            title: 'Task Deleted',
+            description: `"${targetTask.title}" has been deleted.`,
+            variant: 'success',
+          })
+        })
+        .catch((err) => {
+          // Rollback
+          setTasks(previousTasks)
+          toast({
+            title: 'Deletion Failed',
+            description: err.message || 'Could not delete task from server.',
+            variant: 'destructive',
+          })
+        })
     },
-    [tasks, project.id, currentUser]
+    [tasks, queryClient, currentProjectId, toast]
   )
 
   // 5. Add Comment
@@ -240,59 +325,46 @@ export function useProjectWorkspace(projectId: string | undefined) {
         })
       )
 
-      const targetTask = tasks.find((t) => t.id === taskId)
-      const activity: ProjectActivityItem = {
-        id: `act-${Date.now()}`,
-        projectId: project.id,
-        user: currentUser,
-        action: 'commented on',
-        target: targetTask?.title || 'task',
-        timestamp: 'Just now',
-        type: 'comment_added',
-      }
-      setActivities((prev) => [activity, ...prev])
+      projectsApi
+        .addComment(taskId, content)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['project-tasks', currentProjectId] })
+          queryClient.invalidateQueries({ queryKey: ['project-activities', currentProjectId] })
+        })
+        .catch((err) => {
+          toast({
+            title: 'Comment Failed',
+            description: err.message || 'Could not post comment to server.',
+            variant: 'destructive',
+          })
+        })
 
       return newComment
     },
-    [currentUser, project.id, tasks]
+    [currentUser, currentProjectId, queryClient, toast]
   )
 
   // 6. Update Project Members
   const updateMembers = React.useCallback(
     (newMembers: ProjectMember[]) => {
       setProject((prev) => ({ ...prev, members: newMembers }))
-
-      const activity: ProjectActivityItem = {
-        id: `act-${Date.now()}`,
-        projectId: project.id,
-        user: currentUser,
-        action: 'updated project team to',
-        target: `${newMembers.length} members`,
-        timestamp: 'Just now',
-        type: 'member_added',
-      }
-      setActivities((prev) => [activity, ...prev])
     },
-    [project.id, currentUser]
+    []
   )
 
   // 7. Edit Project
   const editProject = React.useCallback(
     (updated: Partial<Project>) => {
       setProject((prev) => ({ ...prev, ...updated }))
-
-      const activity: ProjectActivityItem = {
-        id: `act-${Date.now()}`,
-        projectId: project.id,
-        user: currentUser,
-        action: 'updated project configuration',
-        target: updated.name || project.name,
-        timestamp: 'Just now',
-        type: 'project_updated',
-      }
-      setActivities((prev) => [activity, ...prev])
+      projectsApi.updateProject(currentProjectId, updated as any).catch((err) => {
+        toast({
+          title: 'Project Update Failed',
+          description: err.message || 'Failed to update project on server.',
+          variant: 'destructive',
+        })
+      })
     },
-    [project.id, project.name, currentUser]
+    [currentProjectId, toast]
   )
 
   return {
@@ -300,6 +372,8 @@ export function useProjectWorkspace(projectId: string | undefined) {
     tasks,
     activities,
     metrics,
+    isLoading: projectQuery.isLoading || tasksQuery.isLoading,
+    isError: projectQuery.isError,
     createTask,
     updateTask,
     moveTaskStatus,

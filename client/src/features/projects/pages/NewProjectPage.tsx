@@ -20,6 +20,8 @@ import { Plus, ArrowLeft, AlertCircle } from 'lucide-react'
 import { ProjectMemberSelector, ProjectTagSelector } from '../components'
 import { ProjectMember, ProjectStatus, ProjectPriority, CreateProjectInput } from '../types'
 import { WORKSPACE_MEMBERS } from '../data/mockProjects'
+import { projectsApi } from '@/lib/api'
+
 
 export function NewProjectPage() {
   const navigate = useNavigate()
@@ -90,21 +92,24 @@ export function NewProjectPage() {
 
     setIsSubmitting(true)
 
-    // Simulate short asynchronous project creation
-    setTimeout(() => {
-      setIsSubmitting(false)
-      const generatedId = `proj-${Date.now()}`
-
-      toast({
-        title: 'Project created successfully',
-        description: `"${formData.name}" workspace has been initialized.`,
-        variant: 'success',
+    projectsApi
+      .createProject(formData)
+      .then((newProject) => {
+        toast({
+          title: 'Project created successfully',
+          description: `"${newProject.name}" has been initialized.`,
+          variant: 'success',
+        })
+        navigate(`/app/projects/${newProject.id}`)
       })
-
-      // Navigate to project detail route
-      navigate(`/app/projects/${generatedId}`)
-    }, 850)
+      .catch((err) => {
+        setFormError(err.message || 'Failed to create project on the server.')
+      })
+      .finally(() => {
+        setIsSubmitting(false)
+      })
   }
+
 
   const handleCancel = () => {
     if (isDirty) {

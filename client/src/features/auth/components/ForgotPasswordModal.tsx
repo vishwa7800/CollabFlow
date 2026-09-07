@@ -1,4 +1,3 @@
-import * as React from 'react'
 import {
   Dialog,
   DialogContent,
@@ -7,9 +6,8 @@ import {
   DialogDescription,
   DialogFooter,
   Button,
-  Input,
 } from '@/components/ui'
-import { KeyRound, CheckCircle2 } from 'lucide-react'
+import { KeyRound, Info } from 'lucide-react'
 
 export interface ForgotPasswordModalProps {
   open: boolean
@@ -22,39 +20,8 @@ export function ForgotPasswordModal({
   onOpenChange,
   defaultEmail = '',
 }: ForgotPasswordModalProps) {
-  const [email, setEmail] = React.useState(defaultEmail)
-  const [error, setError] = React.useState('')
-  const [submitted, setSubmitted] = React.useState(false)
-  const [loading, setLoading] = React.useState(false)
-
   const handleClose = () => {
     onOpenChange(false)
-    // Reset state on close
-    setTimeout(() => {
-      setError('')
-      setSubmitted(false)
-      setLoading(false)
-    }, 200)
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim()) {
-      setError('Please enter your email address.')
-      return
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email.trim())) {
-      setError('Please enter a valid email address.')
-      return
-    }
-
-    setError('')
-    setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      setSubmitted(true)
-    }, 800)
   }
 
   return (
@@ -66,65 +33,40 @@ export function ForgotPasswordModal({
           </div>
           <DialogTitle>Reset your password</DialogTitle>
           <DialogDescription>
-            Enter the email associated with your CollabFlow account, and we’ll send you password recovery instructions.
+            Password recovery and reset functionality.
           </DialogDescription>
         </DialogHeader>
 
-        {submitted ? (
-          <div className="py-4 text-left space-y-3 animate-in fade-in-50">
-            <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Password recovery link dispatched</span>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              If an account matches <strong className="text-white">{email}</strong>, you will receive an email with instructions to reset your password shortly.
-            </p>
-            <div className="pt-2">
-              <Button
-                variant="primary"
-                size="sm"
-                className="w-full"
-                onClick={handleClose}
-              >
-                Done
-              </Button>
+        <div className="py-3 text-left space-y-3">
+          <div className="flex items-start gap-2.5 rounded-lg border border-amber-800/50 bg-amber-950/30 p-3 text-xs text-amber-300">
+            <Info className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+            <div className="space-y-1 leading-relaxed">
+              <p className="font-semibold text-amber-200">Email service not configured</p>
+              <p className="text-amber-300/80">
+                Self-service password reset via email dispatch is currently disabled in this environment.
+                For development accounts, please contact your workspace owner or sign in with your designated credentials.
+              </p>
             </div>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            <Input
-              label="Email address"
-              type="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                if (error) setError('')
-              }}
-              error={error}
-              autoFocus
-              required
-            />
-            <DialogFooter className="mt-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleClose}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="sm"
-                isLoading={loading}
-              >
-                Send recovery link
-              </Button>
-            </DialogFooter>
-          </form>
-        )}
+
+          {defaultEmail && (
+            <p className="text-xs text-slate-400">
+              Account: <strong className="text-slate-200">{defaultEmail}</strong>
+            </p>
+          )}
+        </div>
+
+        <DialogFooter className="mt-2">
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            className="w-full"
+            onClick={handleClose}
+          >
+            Understood
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

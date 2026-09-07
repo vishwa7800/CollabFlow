@@ -36,7 +36,9 @@ export class ApiClient {
       Accept: 'application/json',
     }
 
+    // Default credentials to 'include' for secure HTTP-only cookies
     const response = await fetch(url, {
+      credentials: 'include',
       ...restOptions,
       headers: {
         ...defaultHeaders,
@@ -45,17 +47,23 @@ export class ApiClient {
     })
 
     if (!response.ok) {
-      let errorData: Partial<ApiError> = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let errorData: any = {}
       try {
         errorData = await response.json()
       } catch {
         errorData = { message: response.statusText || 'An unexpected error occurred' }
       }
 
+      const message =
+        errorData?.error?.message ||
+        errorData?.message ||
+        `Request failed with status ${response.status}`
+
       const error: ApiError = {
-        message: errorData.message || `Request failed with status ${response.status}`,
+        message,
         status: response.status,
-        details: errorData.details,
+        details: errorData?.error?.details || errorData?.details,
       }
       throw error
     }

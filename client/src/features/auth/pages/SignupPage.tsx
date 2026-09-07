@@ -6,10 +6,13 @@ import {
   PasswordInput,
   AuthErrorAlert,
 } from '@/features/auth/components'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 import { UserPlus, ArrowRight } from 'lucide-react'
 
 export function SignupPage() {
   const navigate = useNavigate()
+  const { register } = useAuth()
+
   const [name, setName] = React.useState('')
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
@@ -65,7 +68,7 @@ export function SignupPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setAuthError(null)
 
@@ -75,12 +78,24 @@ export function SignupPage() {
 
     setIsLoading(true)
 
-    // Simulate registration interaction (backend auth will be implemented in Phase 14)
-    setTimeout(() => {
+    try {
+      await register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      })
+
+      // Navigate to app dashboard after account creation
+      navigate('/app/dashboard', { replace: true })
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message || 'Failed to create account.'
+      setAuthError(message)
+    } finally {
       setIsLoading(false)
-      // Navigate to app dashboard preview
-      navigate('/app/dashboard')
-    }, 900)
+    }
   }
 
   return (

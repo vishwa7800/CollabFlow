@@ -1,3 +1,5 @@
 export * from './components'
+export * from './context/AuthContext'
+export * from './hooks/useAuth'
 export * from './pages/LoginPage'
 export * from './pages/SignupPage'

@@ -3,11 +3,22 @@
 # Frontend Only (Backend & Secrets Excluded)
 # ==========================================
 
-# 1. Backend Server Directory (Excluded entirely from repository)
+# 1. Entire Backend, Database & Server Code (Confidential)
 server/
 /server/
+backend/
+/backend/
+api/
+/api/
 
-# 2. Environment and Secret Files (Never commit credentials)
+# 2. Database, Migrations, Seeds & Schemas
+*.prisma
+*.sql
+*.sqlite
+*.sqlite-journal
+*.db
+
+# 3. Environment and Secret Files (Never commit credentials)
 .env
 .env.*
 .env.local
@@ -16,38 +27,39 @@ server/
 .env.production.local
 *.env
 *.env.local
+*.pem
+*.key
+*.cert
 
-# Allow example config templates
+# Allow safe example config templates
 !.env.example
 !client/.env.example
 
-# 3. Dependencies
+# 4. Dependencies
 node_modules/
 */node_modules/
 .pnp
 .pnp.js
 
-# 4. Production Build Outputs
+# 5. Production Build Outputs
 dist/
 */dist/
 dist-ssr/
 build/
 out/
 .next/
+*.tsbuildinfo
 
-# 5. Database & Cache Files
-*.sqlite
-*.sqlite-journal
-*.db
-*.log
+# 6. Logs & Debugging Files
 logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# 6. IDE, System & Temporary Files
+# 7. IDE, System & Temporary Files
 .DS_Store
 Thumbs.db
 .vscode/*
@@ -59,4 +71,3 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
-*.tsbuildinfo

@@ -7,7 +7,19 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui'
-import { Plus, MessageSquare, Clock, ArrowRightLeft, Check, Timer } from 'lucide-react'
+import {
+  Plus,
+  MessageSquare,
+  Clock,
+  ArrowRightLeft,
+  Check,
+  Timer,
+  CheckCircle2,
+  FileCheck,
+  AlertTriangle,
+  Activity,
+  ShieldAlert,
+} from 'lucide-react'
 import { ProjectTask, TaskStatus, TaskPriority } from '../types'
 
 export interface ProjectTaskBoardProps {
@@ -211,6 +223,51 @@ export function ProjectTaskBoard({
                           ))}
                         </div>
                       )}
+
+                      {/* Evidence Status Indicator */}
+                      <div className="flex items-center gap-1.5">
+                        {task.evidenceStatus === 'Verified' ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            title="Verified Work Evidence"
+                          >
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            <span>Verified</span>
+                          </span>
+                        ) : task.evidenceStatus === 'Evidence Submitted' ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                            title="Work Evidence Submitted - Awaiting Review"
+                          >
+                            <FileCheck className="h-2.5 w-2.5" />
+                            <span>Evidence Submitted</span>
+                          </span>
+                        ) : task.evidenceStatus === 'Blocked' ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20"
+                            title="Task is currently blocked"
+                          >
+                            <AlertTriangle className="h-2.5 w-2.5" />
+                            <span>Blocked</span>
+                          </span>
+                        ) : task.evidenceStatus === 'In Progress' ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20"
+                            title="Work in progress"
+                          >
+                            <Activity className="h-2.5 w-2.5" />
+                            <span>In Progress</span>
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-500 bg-slate-950/60 border border-slate-800/60"
+                            title="No work evidence submitted yet"
+                          >
+                            <ShieldAlert className="h-2.5 w-2.5 text-slate-600" />
+                            <span>No Evidence</span>
+                          </span>
+                        )}
+                      </div>
 
                       {/* Footer: Due date, comment count, and assignee */}
                       <div className="flex items-center justify-between pt-2 border-t border-slate-800/70 text-[11px] text-slate-400">

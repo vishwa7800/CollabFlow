@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Button, EmptyState, Card, CardHeader, CardTitle, CardDescription, Input, Badge, Avatar } from '@/components/ui'
 import { PageContainer, PageHeader } from '@/components/layout'
-import { Plus, CheckSquare, ArrowRight } from 'lucide-react'
+import { Plus, CheckSquare, ArrowRight, TrendingUp } from 'lucide-react'
 
 export { ProjectsPage, ProjectDetailPage, NewProjectPage } from '@/features/projects'
 
@@ -50,9 +50,16 @@ export function TeamPage() {
         description="Collaborate with teammates and manage role-based project permissions."
         breadcrumbs={[{ label: 'Workspace', href: '/app/dashboard' }, { label: 'Team' }]}
         primaryAction={
-          <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />}>
-            Invite Member
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link to="/app/team/performance">
+              <Button variant="outline" size="sm" leftIcon={<TrendingUp className="h-4 w-4" />}>
+                Performance Analytics
+              </Button>
+            </Link>
+            <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />}>
+              Invite Member
+            </Button>
+          </div>
         }
       />
 

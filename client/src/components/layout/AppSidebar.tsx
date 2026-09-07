@@ -11,6 +11,7 @@ import { Avatar, Tooltip, Dialog, DialogContent, DialogHeader, DialogTitle, Dial
 import { MAIN_NAV_ITEMS, SECONDARY_NAV_ITEMS } from '@/config/navigation'
 import { APP_NAME } from '@/constants'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 
 export interface AppSidebarProps {
   collapsed: boolean
@@ -26,6 +27,7 @@ export function AppSidebar({
   onToggleMobile,
 }: AppSidebarProps) {
   const location = useLocation()
+  const { user } = useAuth()
   const [helpDialogOpen, setHelpDialogOpen] = React.useState(false)
 
   // Listen for Escape key to close mobile drawer
@@ -203,11 +205,11 @@ export function AppSidebar({
             collapsed && !isMobile && 'justify-center p-1.5'
           )}
         >
-          <Avatar name="Alex Morgan" size="sm" />
+          <Avatar name={user?.name || 'User'} src={user?.avatar || undefined} size="sm" />
           {(!collapsed || isMobile) && (
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">Alex Morgan</p>
-              <p className="text-[10px] text-slate-500 truncate">alex@example.com</p>
+              <p className="text-xs font-semibold text-white truncate">{user?.name || 'Workspace User'}</p>
+              <p className="text-[10px] text-slate-500 truncate">{user?.email || 'user@collabflow.dev'}</p>
             </div>
           )}
         </div>

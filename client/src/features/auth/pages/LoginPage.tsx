@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent, Button, Input, Checkbox } from '@/components/ui'
 import {
   AuthHeader,
@@ -7,10 +7,14 @@ import {
   AuthErrorAlert,
   ForgotPasswordModal,
 } from '@/features/auth/components'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 import { LogIn, ArrowRight } from 'lucide-react'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { login } = useAuth()
+
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [rememberMe, setRememberMe] = React.useState(false)
@@ -41,7 +45,7 @@ export function LoginPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setAuthError(null)
 
@@ -51,12 +55,23 @@ export function LoginPage() {
 
     setIsLoading(true)
 
-    // Simulate frontend submission interaction (backend auth will be implemented in Phase 14)
-    setTimeout(() => {
+    try {
+      await login({
+        email: email.trim(),
+        password,
+      })
+
+      // Navigate to intended destination or default to app dashboard
+      const destination =
+        (location.state as { from?: { pathname?: string } })?.from?.pathname || '/app/dashboard'
+      navigate(destination, { replace: true })
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : (err as { message?: string })?.message || 'Invalid email or password.'
+      setAuthError(message)
+    } finally {
       setIsLoading(false)
-      // Navigate to app dashboard preview
-      navigate('/app/dashboard')
-    }, 900)
+    }
   }
 
   return (

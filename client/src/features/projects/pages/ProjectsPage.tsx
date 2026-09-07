@@ -11,13 +11,21 @@ import {
   ProjectSkeleton,
 } from '../components'
 import { MOCK_PROJECTS } from '../data/mockProjects'
+import { useQuery } from '@tanstack/react-query'
+import { projectsApi } from '@/lib/api'
 import {
-  Project,
   ProjectFiltersState,
 } from '../types'
 
 export function ProjectsPage() {
-  const [projects] = React.useState<Project[]>(MOCK_PROJECTS)
+
+  const { data: apiProjects, isLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => projectsApi.getProjects(),
+  })
+
+  const projects = apiProjects || MOCK_PROJECTS
+
   const [filters, setFilters] = React.useState<ProjectFiltersState>({
     search: '',
     status: 'All',
@@ -25,7 +33,7 @@ export function ProjectsPage() {
     sortBy: 'updated',
     viewMode: 'grid',
   })
-  const [isLoading] = React.useState(false)
+
 
   // Filter & Sort Logic
   const filteredProjects = React.useMemo(() => {
