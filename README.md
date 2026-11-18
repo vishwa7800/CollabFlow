@@ -1,7 +1,5 @@
 # 🚀 CollabFlow — Team Project Management & Developer Accountability SaaS
 
-> **Agile Project Management + Verifiable GitHub Evidence + Peer Review Gate + Automated Accountability Scoring + Live Team Analytics**
-
 <div align="center">
 
 [![React](https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
@@ -54,7 +52,6 @@ Traditional issue trackers (such as Trello or Jira) operate strictly on an **"ho
 CollabFlow solves this with a **verifiable evidence layer**:
 - Tasks **cannot** simply be marked *Done*.
 - Developers submit concrete **GitHub deliverables** (Pull Request URLs, Commit SHAs, Branch references).
-- The system connects with the **GitHub REST API** to automatically verify code legitimacy, diff metrics, merge status, and authorship.
 - Peers conduct structured code reviews, and project managers enforce an **Approval Gate**.
 - An automated scoring algorithm calculates an objective **Accountability Score (0–100)** for every developer and project workspace.
 
